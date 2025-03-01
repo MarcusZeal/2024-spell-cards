@@ -103,6 +103,9 @@ spell-level {
 }
 .classes {
 	font-size: 5.5pt;
+	line-height: 1.2em;
+	padding: 5px;
+	display: block;
 }
 
 img.class-image {
