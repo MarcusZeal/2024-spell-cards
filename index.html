@@ -4,32 +4,94 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Spell Cards</title>
+		<link
+			rel="stylesheet"
+			href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 		<link rel="stylesheet" href="styles.css" />
+		<!-- Choices CSS -->
+		<link
+			rel="stylesheet"
+			href="https://cdn.jsdelivr.net/npm/slim-select@1.27.0/dist/slimselect.min.css" />
+
+		<link
+			rel="stylesheet"
+			href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+		<style>
+			.loading-state {
+				padding: 2rem;
+				text-align: center;
+				color: #666;
+				font-style: italic;
+			}
+			.error {
+				padding: 2rem;
+				text-align: center;
+				color: #dc3545;
+				border: 1px solid #dc3545;
+				margin: 1rem;
+				border-radius: 4px;
+			}
+			.error-card {
+				border: 2px solid #ff4444;
+				padding: 1rem;
+				margin: 0.5rem;
+				background: #ffeaea;
+				color: #cc0000;
+			}
+		</style>
 	</head>
 	<body>
 		<div class="filters">
-			<select id="classSelect">
-				<option value="">Any Class</option>
-			</select>
-			<select id="levelSelect">
-				<option value="">Any Level</option>
-				<option value="0">Cantrip</option>
-				<option value="1">1</option>
-				<option value="2">2</option>
-				<option value="3">3</option>
-				<option value="4">4</option>
-				<option value="5">5</option>
-				<option value="6">6</option>
-				<option value="7">7</option>
-				<option value="8">8</option>
-				<option value="9">9</option>
-			</select>
-			<button id="printButton" onclick="window.print()">Print</button>
+			<!-- Filter controls remain unchanged -->
+			<div class="filter-group">
+				<label for="classSelect">Class:</label>
+				<select id="classSelect" class="filter-select">
+					<option value="">All Classes</option>
+				</select>
+			</div>
+			<div class="filter-group">
+				<label for="levelSelect">Levels:</label>
+				<select id="levelSelect" class="filter-select" multiple>
+					<option value="0">Cantrip</option>
+					<option value="1">1</option>
+					<option value="2">2</option>
+					<option value="3">3</option>
+					<option value="4">4</option>
+					<option value="5">5</option>
+					<option value="6">6</option>
+					<option value="7">7</option>
+					<option value="8">8</option>
+					<option value="9">9</option>
+				</select>
+			</div>
+			<div class="filter-group">
+				<label for="schoolSelect">Schools:</label>
+				<select id="schoolSelect" class="filter-select" multiple></select>
+			</div>
+			<div class="filter-group">
+				<label for="sortSelect">Sort By:</label>
+				<select id="sortSelect" class="filter-select">
+					<option value="default">Default</option>
+					<option value="school">School (A-Z)</option>
+					<option value="levelAsc">Level (Ascending)</option>
+					<option value="levelDesc">Level (Descending)</option>
+				</select>
+			</div>
+			<div class="button-group">
+				<button id="selectAllButton">
+					<i class="fas fa-check-square"></i> Select All
+				</button>
+				<button id="printButton">
+					<i class="fas fa-print"></i> Print Selected
+				</button>
+			</div>
 		</div>
+
 		<div id="spellContainer">Loading...</div>
 
 		<script>
-			const classColors = {
+			const CACHE_TTL = 15 * 60 * 1000;
+			const CLASS_COLORS = {
 				Sorcerer: "#992E2E",
 				Wizard: "#2A50A1",
 				Druid: "#7A853B",
@@ -42,125 +104,289 @@
 				Warlock: "#5f1c8a",
 			};
 
-			// Populate class dropdown
-			const classSelect = document.getElementById("classSelect");
-			Object.keys(classColors).forEach((cls) => {
-				const option = document.createElement("option");
-				option.value = cls;
-				option.textContent = cls;
-				classSelect.appendChild(option);
-			});
+			let allSpells = [];
+			let filteredSpells = [];
+			let templateCache = null;
+			let abortController = new AbortController();
 
-			async function loadSpells() {
-				try {
-					let response = await fetch("spells.json");
-					if (!response.ok) {
-						throw new Error(`HTTP error! Status: ${response.status}`);
+			const dom = {
+				classSelect: document.getElementById("classSelect"),
+				levelSelect: document.getElementById("levelSelect"),
+				schoolSelect: document.getElementById("schoolSelect"),
+				spellContainer: document.getElementById("spellContainer"),
+				selectAllButton: document.getElementById("selectAllButton"),
+				printButton: document.getElementById("printButton"),
+			};
+
+			async function fetchTemplate() {
+				if (!templateCache) {
+					try {
+						const response = await fetch("spell-card-template.html", {
+							signal: abortController.signal,
+						});
+						const text = await response.text();
+						if (!text.includes("select-checkbox")) {
+							throw new Error("Template missing required checkbox element");
+						}
+						templateCache = text;
+					} catch (err) {
+						if (err.name !== "AbortError") throw err;
 					}
-					let data = await response.json();
-					let spells = data.spells;
-					let container = document.getElementById("spellContainer");
-					container.innerHTML = "";
+				}
+				return templateCache;
+			}
 
-					// Get filter values
-					const selectedClass = document.getElementById("classSelect").value;
-					const selectedLevel = document.getElementById("levelSelect").value;
+			async function loadSpellData() {
+				const cacheKey = "spellData";
+				const cached = localStorage.getItem(cacheKey);
+				if (cached) {
+					const { data, timestamp } = JSON.parse(cached);
+					if (Date.now() - timestamp < CACHE_TTL) return data;
+				}
 
-					// Filter spells
-					let filteredSpells = spells.filter((spell) => {
+				try {
+					const response = await fetch("spells.json", {
+						signal: abortController.signal,
+					});
+					const data = await response.json();
+					localStorage.setItem(
+						cacheKey,
+						JSON.stringify({
+							data: data.spells,
+							timestamp: Date.now(),
+						})
+					);
+					return data.spells;
+				} catch (error) {
+					if (error.name !== "AbortError") throw error;
+					return [];
+				}
+			}
+
+			async function createSpellCard(spell, selectedClass) {
+				const card = document.createElement("div");
+				card.className = "spell-card";
+
+				try {
+					const currentClass = selectedClass || spell.classes?.[0] || "Unknown";
+					const template = await fetchTemplate();
+					const tempDiv = document.createElement("div");
+					tempDiv.innerHTML = template;
+
+					const content = tempDiv
+						.querySelector("template")
+						.content.cloneNode(true);
+
+					// Populate template elements
+					content.querySelector(".spell-name").textContent = spell.name;
+					const infoFields = content.querySelectorAll(".si-txt");
+					infoFields[0].textContent = spell.casting_time;
+					infoFields[1].textContent = spell.components;
+					infoFields[2].textContent = spell.range;
+					infoFields[3].textContent = spell.duration;
+					content.querySelector(".desc").textContent = spell.description;
+					content.querySelector(
+						"spell-level"
+					).textContent = `Level ${spell.level} ${spell.school}`;
+					content.querySelector(".classes .si-txt").textContent =
+						spell.classes.join(", ");
+
+					// Set class-specific styling
+					const img = content.querySelector("img");
+					img.src = `img/${currentClass.toLowerCase()}.png`;
+					img.alt = currentClass;
+					card.style.setProperty(
+						"--classColor",
+						CLASS_COLORS[currentClass] || "gray"
+					);
+
+					// Add checkbox functionality
+					const checkbox = content.querySelector(".select-checkbox");
+					if (checkbox) {
+						checkbox.addEventListener("change", (e) => {
+							card.classList.toggle("selected", e.target.checked);
+							card.setAttribute("aria-checked", e.target.checked);
+						});
+					}
+
+					card.appendChild(content);
+					return card;
+				} catch (error) {
+					console.error("Card creation failed:", error);
+					const fallback = document.createElement("div");
+					fallback.className = "error-card";
+					fallback.textContent = spell.name;
+					return fallback;
+				}
+			}
+
+			function filterAndSortSpells() {
+				const selectedClass = dom.classSelect.value;
+				const selectedLevels = [...dom.levelSelect.selectedOptions].map(
+					(o) => o.value
+				);
+				const selectedSchools = [...dom.schoolSelect.selectedOptions].map(
+					(o) => o.value
+				);
+				const sortValue = document.getElementById("sortSelect").value;
+
+				return allSpells
+					.filter((spell) => {
 						const classMatch =
 							!selectedClass || spell.classes?.includes(selectedClass);
 						const levelMatch =
-							!selectedLevel || spell.level.toString() === selectedLevel;
-						return classMatch && levelMatch;
-					});
-
-					filteredSpells.slice(0, 9999).forEach((spell) => {
-						let card = document.createElement("div");
-						card.className = "spell-card";
-
-						// Determine current class
-						let currentClass = selectedClass;
-						if (!currentClass) {
-							currentClass =
-								spell.classes && spell.classes.length > 0
-									? spell.classes[0]
-									: "Unknown";
+							selectedLevels.length === 0 ||
+							selectedLevels.includes(spell.level.toString());
+						const schoolMatch =
+							selectedSchools.length === 0 ||
+							selectedSchools.includes(spell.school);
+						return classMatch && levelMatch && schoolMatch;
+					})
+					.sort((a, b) => {
+						switch (sortValue) {
+							case "school":
+								return a.school.localeCompare(b.school);
+							case "levelAsc":
+								return a.level - b.level;
+							case "levelDesc":
+								return b.level - a.level;
+							default:
+								return 0;
 						}
+					});
+			}
 
-						// Get color and image
-						let color = classColors[currentClass] || "gray";
-						let classImageSrc = `img/${currentClass.toLowerCase()}.png`;
+			async function renderSpells() {
+				try {
+					dom.spellContainer.innerHTML =
+						'<div class="loading-state">Loading spells...</div>';
+					const fragment = document.createDocumentFragment();
 
-						card.style.setProperty("--classColor", color);
+					const cards = await Promise.all(
+						filteredSpells.map((spell) =>
+							createSpellCard(spell, dom.classSelect.value)
+						)
+					);
 
-						card.innerHTML = `
-<header>
-	<div class="spell-name">${spell.name}</div>
-	<div class="spell-info">
-		<div class="si-in">
-			<strong class="si-type">Casting Type:</strong>
-			<span class="si-txt">${spell.casting_time}</span>
-		</div>
-		<div class="si-in">
-			<strong class="si-type">Components:</strong>
-			<span class="si-txt">${spell.components}</span>
-		</div>
-		<div class="si-in">
-			<strong class="si-type">Range:</strong>
-			<span class="si-txt">${spell.range}</span>
-		</div>
-		<div class="si-in">
-			<strong class="si-type">Duration:</strong>
-			<span class="si-txt">${spell.duration}</span>
-		</div>
-	</div>
-	<img src="${classImageSrc}" alt="${currentClass}" class="class-image" />
-</header>
-<section>
-	<p class="desc">${spell.description}</p>
-</section>
-<footer>
-	<spell-level>Level ${spell.level} ${spell.school}</spell-level>
-	<div class="classes">
-		<strong class="si-type">Classes:</strong>
-		<span class="si-txt">${spell.classes.join(", ")}</span>
-	</div>
-</footer>
-`;
+					cards.forEach((card) => fragment.appendChild(card));
+					dom.spellContainer.innerHTML = "";
+					dom.spellContainer.appendChild(fragment);
 
-						container.appendChild(card);
-
-						setTimeout(() => {
-							adjustFontSize(card.querySelector(".spell-name"), 30);
-							adjustFontSize(card.querySelector(".desc"), 180);
-						}, 0);
+					requestAnimationFrame(() => {
+						dom.spellContainer
+							.querySelectorAll(".spell-card")
+							.forEach((card) => {
+								const adjust = (selector, maxHeight) => {
+									const el = card.querySelector(selector);
+									if (!el) return;
+									let fontSize = parseFloat(getComputedStyle(el).fontSize);
+									while (el.scrollHeight > maxHeight && fontSize > 6) {
+										el.style.fontSize = `${(fontSize -= 0.5)}px`;
+									}
+								};
+								adjust(".spell-name", 30);
+								adjust(".desc", 180);
+							});
 					});
 				} catch (error) {
-					console.error("Error loading spells:", error);
-					document.getElementById(
-						"spellContainer"
-					).innerHTML = `<p style="color:red;">Failed to load spells.</p>`;
+					dom.spellContainer.innerHTML = `
+                    <div class="error">
+                        <p>Failed to load spells. <button onclick="location.reload()">Retry</button></p>
+                    </div>`;
 				}
 			}
 
-			// Add event listeners for filters
-			document
-				.getElementById("classSelect")
-				.addEventListener("change", loadSpells);
-			document
-				.getElementById("levelSelect")
-				.addEventListener("change", loadSpells);
+			function setupEventListeners() {
+				const debouncedRender = debounce(() => {
+					filteredSpells = filterAndSortSpells();
+					renderSpells();
+				}, 300);
 
-			loadSpells();
+				document.querySelectorAll(".filter-select").forEach((select) => {
+					select.addEventListener("change", debouncedRender);
+				});
 
-			function adjustFontSize(element, maxHeight, minFontSize = 6) {
-				let fontSize = parseFloat(window.getComputedStyle(element).fontSize);
-				while (element.scrollHeight > maxHeight && fontSize > minFontSize) {
-					fontSize -= 0.1;
-					element.style.fontSize = `${fontSize}px`;
+				// Fixed Select All functionality
+				dom.selectAllButton.addEventListener("click", () => {
+					const checkboxes = [...document.querySelectorAll(".select-checkbox")];
+					const allChecked = checkboxes.every((cb) => cb.checked);
+
+					checkboxes.forEach((checkbox) => {
+						// Toggle checked state and trigger change event
+						checkbox.checked = !allChecked;
+						const event = new Event("change", { bubbles: true });
+						checkbox.dispatchEvent(event);
+					});
+
+					// Update button text
+					dom.selectAllButton.innerHTML = allChecked
+						? `<i class="fas fa-check-square"></i> Select All`
+						: `<i class="fas fa-minus-square"></i> Deselect All`;
+				});
+
+				dom.printButton.addEventListener("click", () => {
+					const selected = document.querySelectorAll(".spell-card.selected");
+					if (selected.length === 0) {
+						alert("Please select at least one spell to print!");
+						return;
+					}
+					window.print();
+				});
+			}
+
+			const debounce = (fn, delay) => {
+				let timeout;
+				return (...args) => {
+					clearTimeout(timeout);
+					timeout = setTimeout(() => fn(...args), delay);
+				};
+			};
+
+			async function initialize() {
+				try {
+					await Promise.all([
+						loadSpellData().then((data) => (allSpells = data)),
+						fetchTemplate(),
+					]);
+
+					Object.keys(CLASS_COLORS).forEach((cls) => {
+						const option = document.createElement("option");
+						option.value = cls;
+						option.textContent = cls;
+						dom.classSelect.appendChild(option);
+					});
+
+					const schools = [
+						...new Set(allSpells.map((spell) => spell.school)),
+					].sort();
+					schools.forEach((school) => {
+						const option = document.createElement("option");
+						option.value = school;
+						option.textContent = school;
+						dom.schoolSelect.appendChild(option);
+					});
+
+					filteredSpells = filterAndSortSpells();
+					setupEventListeners();
+					await renderSpells();
+				} catch (error) {
+					console.error("Initialization failed:", error);
 				}
 			}
+
+			window.addEventListener("beforeunload", () => abortController.abort());
+			document.addEventListener("DOMContentLoaded", initialize);
+		</script>
+
+		<!-- Slim Select JS -->
+		<script src="https://cdn.jsdelivr.net/npm/slim-select@1.27.0/dist/slimselect.min.js"></script>
+		<script>
+			document.addEventListener("DOMContentLoaded", function () {
+				new SlimSelect({ select: "#classSelect" });
+				new SlimSelect({ select: "#levelSelect" });
+				new SlimSelect({ select: "#schoolSelect" });
+				new SlimSelect({ select: "#sortSelect" });
+			});
 		</script>
 	</body>
 </html>

@@ -1,25 +1,6 @@
 :root {
 	--classColor: gray; /* Default color */
 }
-@media print {
-	.spell-card {
-		page-break-inside: avoid; /* Prevent cards from breaking across pages */
-	}
-
-	#spellContainer {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: flex-start;
-	}
-
-	body {
-		-webkit-print-color-adjust: exact; /* Ensures colors print correctly */
-		print-color-adjust: exact;
-	}
-	.filters {
-		display: none;
-	}
-}
 
 body {
 	font-size: 10pt;
@@ -33,15 +14,20 @@ div#spellContainer {
 	gap: 0rem;
 }
 .spell-card {
-	width: 2.5in;
-	height: 3.5in;
+	width: calc(2.5in - 4mm);
+	height: calc(3.5in - 2mm);
 	display: flex;
 	flex-direction: column;
 	padding: 2mm 2mm 0px 2mm;
 	justify-content: space-between;
 	border: 0.5px dotted #000;
-	margin: 1px;
+	margin: 4px;
 	background-color: rgba(var(--classColor), 0.1);
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	background: white;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	position: relative;
 }
 .spell-name {
 	background: var(--classColor);
@@ -115,4 +101,142 @@ img.class-image {
 	top: 5px;
 	filter: drop-shadow(0px 1px 0px currentColor);
 	color: var(--classColor);
+}
+
+/* Enhanced Filter Styles */
+.filters {
+	margin-bottom: 20px;
+	display: flex;
+	gap: 15px;
+	flex-wrap: wrap;
+	padding: 15px;
+	background: #f5f5f5;
+	border-radius: 8px;
+}
+
+.filter-group {
+	position: relative;
+}
+
+.filter-group label {
+	display: block;
+	margin-bottom: 5px;
+	color: #444;
+	font-weight: 500;
+}
+.button-group {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+button#selectAllButton:hover,
+.button-group:hover {
+	cursor: pointer;
+}
+/* Print Button Styles */
+#printButton {
+	padding: 8px 20px;
+	background: #4caf50;
+	color: white;
+	border: none;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: background 0.3s ease;
+	align-self: flex-end;
+}
+
+#printButton:hover {
+	background: #45a049;
+}
+
+/* Checkbox Styles */
+.select-checkbox {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	transform: scale(1.3);
+	accent-color: #4caf50;
+	z-index: 1;
+}
+
+.selected {
+	outline: 2px solid #4caf50;
+}
+
+.spell-card {
+	contain: content;
+	transition: transform 0.2s ease;
+}
+
+.spell-card:hover {
+	transform: translateY(-2px);
+}
+
+.error {
+	color: #dc3545;
+	padding: 1rem;
+	text-align: center;
+}
+
+.error button {
+	background: #007bff;
+	color: white;
+	border: none;
+	padding: 0.5rem 1rem;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+[data-spell-id] {
+	will-change: transform;
+}
+
+/* Choices.js overrides */
+.choices__list--multiple .choices__item {
+	background: var(--classColor);
+	border: 1px solid rgba(0, 0, 0, 0.1);
+	font-size: 0.9em;
+	margin: 2px;
+}
+
+.choices__input {
+	min-width: 120px !important;
+}
+
+.choices[data-type*="select-one"] .choices__inner {
+	padding: 0.3rem;
+}
+
+@media print {
+	.spell-card {
+		page-break-inside: avoid; /* Prevent cards from breaking across pages */
+	}
+	.spell-card.selected {
+		border: 1px solid #ddd !important;
+		outline: unset !important;
+	}
+	.filters,
+	.select-checkbox {
+		display: none !important;
+	}
+
+	.spell-card:not(.selected) {
+		display: none !important;
+	}
+	.spell-card.selected {
+		border: 1px solid #ddd !important;
+	}
+	#spellContainer {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+	}
+
+	body {
+		-webkit-print-color-adjust: exact; /* Ensures colors print correctly */
+		print-color-adjust: exact;
+	}
+	.filters {
+		display: none;
+	}
 }
