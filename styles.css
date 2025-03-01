@@ -1,0 +1,115 @@
+:root {
+	--classColor: gray; /* Default color */
+}
+@media print {
+	.spell-card {
+		page-break-inside: avoid; /* Prevent cards from breaking across pages */
+	}
+
+	#spellContainer {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+	}
+
+	body {
+		-webkit-print-color-adjust: exact; /* Ensures colors print correctly */
+		print-color-adjust: exact;
+	}
+	.filters {
+		display: none;
+	}
+}
+
+body {
+	font-size: 10pt;
+	line-height: 1.4em;
+	font-family: Montserrat;
+}
+div#spellContainer {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	gap: 0rem;
+}
+.spell-card {
+	width: 2.5in;
+	height: 3.5in;
+	display: flex;
+	flex-direction: column;
+	padding: 2mm 2mm 0px 2mm;
+	justify-content: space-between;
+	border: 0.5px dotted #000;
+	margin: 1px;
+	background-color: rgba(var(--classColor), 0.1);
+}
+.spell-name {
+	background: var(--classColor);
+	text-transform: uppercase;
+	font-size: 12pt;
+	font-weight: 700;
+	letter-spacing: 0.03em;
+	text-align: left;
+	color: #fff;
+	padding: 5px;
+	padding-right: 50px;
+	font-family: montserrat;
+}
+.spell-info {
+	font-size: 6pt;
+	line-height: 1.1em;
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	width: 80%;
+	padding-block: 5px;
+}
+.si-in {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	width: 48%;
+	padding: 1%;
+}
+p.desc {
+	font-size: 7.25pt;
+	margin: 0px;
+	line-height: 1.35em;
+}
+header {
+	position: relative;
+}
+footer {
+	font-size: 7pt;
+	text-align: center;
+}
+section {
+	margin-bottom: auto;
+	margin-top: 5px;
+	border-top: var(--classColor) solid 2px;
+	padding-top: 5px;
+	font-family: Baskerville;
+	letter-spacing: 0.02em;
+}
+spell-level {
+	display: block;
+	font-size: 8pt;
+	padding: 5px;
+	line-height: 1em;
+	background: var(--classColor);
+	color: #fff;
+}
+.classes {
+	font-size: 5.5pt;
+}
+
+img.class-image {
+	width: 36px;
+	position: absolute;
+	right: 10px;
+	top: 5px;
+	filter: drop-shadow(0px 1px 0px currentColor);
+	color: var(--classColor);
+}

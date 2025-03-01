@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Spell Cards</title>
+		<link rel="stylesheet" href="styles.css" />
+	</head>
+	<body>
+		<div class="filters">
+			<select id="classSelect">
+				<option value="">Any Class</option>
+			</select>
+			<select id="levelSelect">
+				<option value="">Any Level</option>
+				<option value="0">Cantrip</option>
+				<option value="1">1</option>
+				<option value="2">2</option>
+				<option value="3">3</option>
+				<option value="4">4</option>
+				<option value="5">5</option>
+				<option value="6">6</option>
+				<option value="7">7</option>
+				<option value="8">8</option>
+				<option value="9">9</option>
+			</select>
+			<button id="printButton" onclick="window.print()">Print</button>
+		</div>
+		<div id="spellContainer">Loading...</div>
+
+		<script>
+			const classColors = {
+				Sorcerer: "#992E2E",
+				Wizard: "#2A50A1",
+				Druid: "#7A853B",
+				Ranger: "#507F62",
+				Rogue: "#555752",
+				Artificer: "#ee8600",
+				Bard: "#AB6DAC",
+				Cleric: "#ffae00",
+				Paladin: "#9e9e9e",
+				Warlock: "#5f1c8a",
+			};
+
+			// Populate class dropdown
+			const classSelect = document.getElementById("classSelect");
+			Object.keys(classColors).forEach((cls) => {
+				const option = document.createElement("option");
+				option.value = cls;
+				option.textContent = cls;
+				classSelect.appendChild(option);
+			});
+
+			async function loadSpells() {
+				try {
+					let response = await fetch("spells.json");
+					if (!response.ok) {
+						throw new Error(`HTTP error! Status: ${response.status}`);
+					}
+					let data = await response.json();
+					let spells = data.spells;
+					let container = document.getElementById("spellContainer");
+					container.innerHTML = "";
+
+					// Get filter values
+					const selectedClass = document.getElementById("classSelect").value;
+					const selectedLevel = document.getElementById("levelSelect").value;
+
+					// Filter spells
+					let filteredSpells = spells.filter((spell) => {
+						const classMatch =
+							!selectedClass || spell.classes?.includes(selectedClass);
+						const levelMatch =
+							!selectedLevel || spell.level.toString() === selectedLevel;
+						return classMatch && levelMatch;
+					});
+
+					filteredSpells.slice(0, 9999).forEach((spell) => {
+						let card = document.createElement("div");
+						card.className = "spell-card";
+
+						// Determine current class
+						let currentClass = selectedClass;
+						if (!currentClass) {
+							currentClass =
+								spell.classes && spell.classes.length > 0
+									? spell.classes[0]
+									: "Unknown";
+						}
+
+						// Get color and image
+						let color = classColors[currentClass] || "gray";
+						let classImageSrc = `img/${currentClass.toLowerCase()}.png`;
+
+						card.style.setProperty("--classColor", color);
+
+						card.innerHTML = `
+<header>
+	<div class="spell-name">${spell.name}</div>
+	<div class="spell-info">
+		<div class="si-in">
+			<strong class="si-type">Casting Type:</strong>
+			<span class="si-txt">${spell.casting_time}</span>
+		</div>
+		<div class="si-in">
+			<strong class="si-type">Components:</strong>
+			<span class="si-txt">${spell.components}</span>
+		</div>
+		<div class="si-in">
+			<strong class="si-type">Range:</strong>
+			<span class="si-txt">${spell.range}</span>
+		</div>
+		<div class="si-in">
+			<strong class="si-type">Duration:</strong>
+			<span class="si-txt">${spell.duration}</span>
+		</div>
+	</div>
+	<img src="${classImageSrc}" alt="${currentClass}" class="class-image" />
+</header>
+<section>
+	<p class="desc">${spell.description}</p>
+</section>
+<footer>
+	<spell-level>Level ${spell.level} ${spell.school}</spell-level>
+	<div class="classes">
+		<strong class="si-type">Classes:</strong>
+		<span class="si-txt">${spell.classes.join(", ")}</span>
+	</div>
+</footer>
+`;
+
+						container.appendChild(card);
+
+						setTimeout(() => {
+							adjustFontSize(card.querySelector(".spell-name"), 30);
+							adjustFontSize(card.querySelector(".desc"), 180);
+						}, 0);
+					});
+				} catch (error) {
+					console.error("Error loading spells:", error);
+					document.getElementById(
+						"spellContainer"
+					).innerHTML = `<p style="color:red;">Failed to load spells.</p>`;
+				}
+			}
+
+			// Add event listeners for filters
+			document
+				.getElementById("classSelect")
+				.addEventListener("change", loadSpells);
+			document
+				.getElementById("levelSelect")
+				.addEventListener("change", loadSpells);
+
+			loadSpells();
+
+			function adjustFontSize(element, maxHeight, minFontSize = 6) {
+				let fontSize = parseFloat(window.getComputedStyle(element).fontSize);
+				while (element.scrollHeight > maxHeight && fontSize > minFontSize) {
+					fontSize -= 0.1;
+					element.style.fontSize = `${fontSize}px`;
+				}
+			}
+		</script>
+	</body>
+</html>
