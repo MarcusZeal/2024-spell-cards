@@ -184,12 +184,28 @@
 					infoFields[1].textContent = spell.components;
 					infoFields[2].textContent = spell.range;
 					infoFields[3].textContent = spell.duration;
-					content.querySelector(".desc").textContent = spell.description;
+					content.querySelector(".desc").innerHTML = sanitizeHTML(
+						spell.description
+					);
 					content.querySelector(
 						"spell-level"
 					).textContent = `Level ${spell.level} ${spell.school}`;
 					content.querySelector(".classes .si-txt").textContent =
 						spell.classes.join(", ");
+
+					//sanitize HTML just in case...
+					function sanitizeHTML(html) {
+						const tempDiv = document.createElement("div");
+						tempDiv.innerHTML = html;
+
+						// Remove potentially dangerous elements
+						const scripts = tempDiv.querySelectorAll(
+							"script, iframe, object, embed"
+						);
+						scripts.forEach((el) => el.remove());
+
+						return tempDiv.innerHTML;
+					}
 
 					// Set class-specific styling
 					const img = content.querySelector("img");
