@@ -116,6 +116,7 @@ img.class-image {
 
 .filter-group {
 	position: relative;
+	min-width: 200px;
 }
 
 .filter-group label {
