@@ -218,12 +218,22 @@
 
 					// Add checkbox functionality
 					const checkbox = content.querySelector(".select-checkbox");
-					if (checkbox) {
-						checkbox.addEventListener("change", (e) => {
-							card.classList.toggle("selected", e.target.checked);
-							card.setAttribute("aria-checked", e.target.checked);
-						});
-					}
+
+					// Make the entire card clickable to toggle the checkbox
+					card.addEventListener("click", (event) => {
+						// Prevent clicks inside the checkbox from double-triggering
+						if (event.target !== checkbox) {
+							checkbox.checked = !checkbox.checked;
+							card.classList.toggle("selected", checkbox.checked);
+							card.setAttribute("aria-checked", checkbox.checked);
+						}
+					});
+
+					// Ensure direct clicks on the checkbox also trigger card selection styling
+					checkbox.addEventListener("change", (e) => {
+						card.classList.toggle("selected", e.target.checked);
+						card.setAttribute("aria-checked", e.target.checked);
+					});
 
 					card.appendChild(content);
 					return card;
