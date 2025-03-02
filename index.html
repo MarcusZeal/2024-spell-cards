@@ -81,13 +81,21 @@
 				<button id="selectAllButton">
 					<i class="fas fa-check-square"></i> Select All
 				</button>
-				<button id="printButton">
-					<i class="fas fa-print"></i> Print Selected
+
+				<button id="printFrontButton">
+					<i class="fas fa-print"></i> Print Front
+				</button>
+				<button id="printBackButton">
+					<i class="fas fa-print"></i> Print Back
+				</button>
+				<button id="flipCardsButton">
+					<i class="fas fa-sync-alt"></i> Flip Selected
 				</button>
 			</div>
 		</div>
 
 		<div id="spellContainer">Loading...</div>
+		<div id="notification" class="notification"></div>
 
 		<script>
 			const CACHE_TTL = 15 * 60 * 1000;
@@ -113,11 +121,34 @@
 				classSelect: document.getElementById("classSelect"),
 				levelSelect: document.getElementById("levelSelect"),
 				schoolSelect: document.getElementById("schoolSelect"),
+				sortSelect: document.getElementById("sortSelect"),
 				spellContainer: document.getElementById("spellContainer"),
 				selectAllButton: document.getElementById("selectAllButton"),
-				printButton: document.getElementById("printButton"),
+				printFrontButton: document.getElementById("printFrontButton"),
+				printBackButton: document.getElementById("printBackButton"),
+				flipCardsButton: document.getElementById("flipCardsButton"),
 			};
 
+			// Utility function to debounce events
+			const debounce = (fn, delay) => {
+				let timeout;
+				return (...args) => {
+					clearTimeout(timeout);
+					timeout = setTimeout(() => fn(...args), delay);
+				};
+			};
+
+			// Function to sanitize HTML
+			function sanitizeHTML(html) {
+				const tempDiv = document.createElement("div");
+				tempDiv.innerHTML = html;
+				tempDiv
+					.querySelectorAll("script, iframe, object, embed")
+					.forEach((el) => el.remove());
+				return tempDiv.innerHTML;
+			}
+
+			// Fetch spell template
 			async function fetchTemplate() {
 				if (!templateCache) {
 					try {
@@ -136,6 +167,7 @@
 				return templateCache;
 			}
 
+			// Load spell data
 			async function loadSpellData() {
 				const cacheKey = "spellData";
 				const cached = localStorage.getItem(cacheKey);
@@ -151,10 +183,7 @@
 					const data = await response.json();
 					localStorage.setItem(
 						cacheKey,
-						JSON.stringify({
-							data: data.spells,
-							timestamp: Date.now(),
-						})
+						JSON.stringify({ data: data.spells, timestamp: Date.now() })
 					);
 					return data.spells;
 				} catch (error) {
@@ -163,6 +192,36 @@
 				}
 			}
 
+			// Populate dropdowns (Fix for missing classes & schools)
+			function populateDropdowns() {
+				const uniqueClasses = new Set();
+				const uniqueSchools = new Set();
+
+				allSpells.forEach((spell) => {
+					spell.classes?.forEach((cls) => uniqueClasses.add(cls));
+					uniqueSchools.add(spell.school);
+				});
+
+				// Populate Class Select
+				dom.classSelect.innerHTML = `<option value="">All Classes</option>`;
+				uniqueClasses.forEach((cls) => {
+					const option = document.createElement("option");
+					option.value = cls;
+					option.textContent = cls;
+					dom.classSelect.appendChild(option);
+				});
+
+				// Populate School Select
+				dom.schoolSelect.innerHTML = "";
+				uniqueSchools.forEach((school) => {
+					const option = document.createElement("option");
+					option.value = school;
+					option.textContent = school;
+					dom.schoolSelect.appendChild(option);
+				});
+			}
+
+			// Create spell cards
 			async function createSpellCard(spell, selectedClass) {
 				const card = document.createElement("div");
 				card.className = "spell-card";
@@ -177,7 +236,7 @@
 						.querySelector("template")
 						.content.cloneNode(true);
 
-					// Populate template elements
+					// Populate spell details
 					content.querySelector(".spell-name").textContent = spell.name;
 					content.querySelector(".spell-casting-time .si-txt").textContent =
 						spell.casting_time;
@@ -187,31 +246,19 @@
 						spell.range;
 					content.querySelector(".spell-duration .si-txt").textContent =
 						spell.duration;
-
 					content.querySelector(".desc").innerHTML = sanitizeHTML(
 						spell.description
 					);
 					content.querySelector(
-						"spell-level"
+						".spell-level"
 					).textContent = `Level ${spell.level} ${spell.school}`;
 					content.querySelector(".classes .si-txt").textContent =
 						spell.classes.join(", ");
-
 					content.querySelector(".spell-class").textContent = currentClass;
 
-					//sanitize HTML just in case...
-					function sanitizeHTML(html) {
-						const tempDiv = document.createElement("div");
-						tempDiv.innerHTML = html;
-
-						// Remove potentially dangerous elements
-						const scripts = tempDiv.querySelectorAll(
-							"script, iframe, object, embed"
-						);
-						scripts.forEach((el) => el.remove());
-
-						return tempDiv.innerHTML;
-					}
+					content.querySelector(".back-spell-level").innerHTML = sanitizeHTML(
+						spell.level
+					);
 
 					// Set class-specific styling
 					const images = content.querySelectorAll(".class-image");
@@ -227,21 +274,15 @@
 
 					// Add checkbox functionality
 					const checkbox = content.querySelector(".select-checkbox");
-
-					// Make the entire card clickable to toggle the checkbox
 					card.addEventListener("click", (event) => {
-						// Prevent clicks inside the checkbox from double-triggering
 						if (event.target !== checkbox) {
 							checkbox.checked = !checkbox.checked;
 							card.classList.toggle("selected", checkbox.checked);
-							card.setAttribute("aria-checked", checkbox.checked);
 						}
 					});
 
-					// Ensure direct clicks on the checkbox also trigger card selection styling
 					checkbox.addEventListener("change", (e) => {
 						card.classList.toggle("selected", e.target.checked);
-						card.setAttribute("aria-checked", e.target.checked);
 					});
 
 					card.appendChild(content);
@@ -255,6 +296,7 @@
 				}
 			}
 
+			// Filter & Sort Spells
 			function filterAndSortSpells() {
 				const selectedClass = dom.classSelect.value;
 				const selectedLevels = [...dom.levelSelect.selectedOptions].map(
@@ -263,20 +305,17 @@
 				const selectedSchools = [...dom.schoolSelect.selectedOptions].map(
 					(o) => o.value
 				);
-				const sortValue = document.getElementById("sortSelect").value;
+				const sortValue = dom.sortSelect.value;
 
 				return allSpells
-					.filter((spell) => {
-						const classMatch =
-							!selectedClass || spell.classes?.includes(selectedClass);
-						const levelMatch =
-							selectedLevels.length === 0 ||
-							selectedLevels.includes(spell.level.toString());
-						const schoolMatch =
-							selectedSchools.length === 0 ||
-							selectedSchools.includes(spell.school);
-						return classMatch && levelMatch && schoolMatch;
-					})
+					.filter(
+						(spell) =>
+							(!selectedClass || spell.classes?.includes(selectedClass)) &&
+							(selectedLevels.length === 0 ||
+								selectedLevels.includes(spell.level.toString())) &&
+							(selectedSchools.length === 0 ||
+								selectedSchools.includes(spell.school))
+					)
 					.sort((a, b) => {
 						switch (sortValue) {
 							case "school":
@@ -291,128 +330,139 @@
 					});
 			}
 
+			// Render Spells
 			async function renderSpells() {
-				try {
-					dom.spellContainer.innerHTML =
-						'<div class="loading-state">Loading spells...</div>';
-					const fragment = document.createDocumentFragment();
+				dom.spellContainer.innerHTML =
+					'<div class="loading-state">Loading spells...</div>';
+				const fragment = document.createDocumentFragment();
+				const cards = await Promise.all(
+					filteredSpells.map((spell) =>
+						createSpellCard(spell, dom.classSelect.value)
+					)
+				);
+				cards.forEach((card) => fragment.appendChild(card));
 
-					const cards = await Promise.all(
-						filteredSpells.map((spell) =>
-							createSpellCard(spell, dom.classSelect.value)
-						)
-					);
+				// Clear and append new cards
+				dom.spellContainer.innerHTML = "";
+				dom.spellContainer.appendChild(fragment);
 
-					cards.forEach((card) => fragment.appendChild(card));
-					dom.spellContainer.innerHTML = "";
-					dom.spellContainer.appendChild(fragment);
+				// Apply font size adjustments
+				adjustFontSizes();
+			}
 
-					requestAnimationFrame(() => {
-						dom.spellContainer
-							.querySelectorAll(".spell-card")
-							.forEach((card) => {
-								const adjust = (selector, maxHeight) => {
-									const el = card.querySelector(selector);
-									if (!el) return;
-									let fontSize = parseFloat(getComputedStyle(el).fontSize);
-									while (el.scrollHeight > maxHeight && fontSize > 6) {
-										el.style.fontSize = `${(fontSize -= 0.5)}px`;
-									}
-								};
-								adjust(".spell-name", 30);
-								adjust(".desc", 180);
-							});
-					});
-				} catch (error) {
-					dom.spellContainer.innerHTML = `
-                    <div class="error">
-                        <p>Failed to load spells. <button onclick="location.reload()">Retry</button></p>
-                    </div>`;
+			// Adjust Font Sizes
+			function adjustFontSizes() {
+				document.querySelectorAll(".spell-card").forEach((card) => {
+					const adjust = (selector, maxHeight) => {
+						const el = card.querySelector(selector);
+						if (!el) return;
+						let fontSize = parseFloat(getComputedStyle(el).fontSize);
+						while (el.scrollHeight > maxHeight && fontSize > 6) {
+							el.style.fontSize = `${(fontSize -= 0.5)}px`;
+						}
+					};
+
+					adjust(".spell-name", 30);
+					adjust(".desc", 180);
+				});
+			}
+
+			// Event Listeners
+			dom.selectAllButton.addEventListener("click", () => {
+				const checkboxes = document.querySelectorAll(".select-checkbox");
+				const allSelected = [...checkboxes].every(
+					(checkbox) => checkbox.checked
+				);
+
+				checkboxes.forEach((checkbox) => {
+					checkbox.checked = !allSelected;
+					checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+				});
+
+				// Toggle button text
+				dom.selectAllButton.innerHTML = allSelected
+					? '<i class="fas fa-check"></i> Select All'
+					: '<i class="fas fa-times"></i> Deselect All';
+			});
+
+			// Flip selected cards
+			function flipSelectedCards() {
+				const selectedCards = document.querySelectorAll(".spell-card.selected");
+
+				if (selectedCards.length === 0) {
+					showNotification("No spells selected to flip!");
+					return;
+				}
+
+				selectedCards.forEach((card) => {
+					card.classList.toggle("flipped");
+				});
+
+				showNotification(`Flipped ${selectedCards.length} selected spell(s)!`);
+			}
+
+			dom.printFrontButton.addEventListener("click", () =>
+				printSelectedCards(false)
+			);
+			dom.printBackButton.addEventListener("click", () =>
+				printSelectedCards(true)
+			);
+			dom.flipCardsButton.addEventListener("click", flipSelectedCards);
+
+			// Notifications
+			function showNotification(message) {
+				const notification = document.getElementById("notification");
+				notification.textContent = message;
+				notification.classList.add("show");
+
+				setTimeout(() => {
+					notification.classList.remove("show");
+				}, 2000); // Hide after 2 seconds
+			}
+
+			// Print function for front and back
+			function printSelectedCards(isBack = false) {
+				const selected = document.querySelectorAll(".spell-card.selected");
+				if (selected.length === 0) {
+					showNotification("Please select at least one spell to print!");
+					return;
+				}
+
+				if (isBack) {
+					selected.forEach((card) => card.classList.add("flipped"));
+				} else {
+					selected.forEach((card) => card.classList.remove("flipped"));
+				}
+
+				window.print();
+
+				if (isBack) {
+					setTimeout(() => {
+						selected.forEach((card) => card.classList.remove("flipped"));
+					}, 500);
 				}
 			}
 
-			function setupEventListeners() {
-				const debouncedRender = debounce(() => {
-					filteredSpells = filterAndSortSpells();
-					renderSpells();
-				}, 300);
+			document.addEventListener("DOMContentLoaded", async () => {
+				await loadSpellData().then((data) => (allSpells = data));
+				populateDropdowns();
 
-				document.querySelectorAll(".filter-select").forEach((select) => {
-					select.addEventListener("change", debouncedRender);
-				});
+				// Ensure filters trigger re-render
+				dom.classSelect.addEventListener("change", updateAndRender);
+				dom.levelSelect.addEventListener("change", updateAndRender);
+				dom.schoolSelect.addEventListener("change", updateAndRender);
+				dom.sortSelect.addEventListener("change", updateAndRender);
 
-				// Fixed Select All functionality
-				dom.selectAllButton.addEventListener("click", () => {
-					const checkboxes = [...document.querySelectorAll(".select-checkbox")];
-					const allChecked = checkboxes.every((cb) => cb.checked);
+				filteredSpells = filterAndSortSpells();
+				await renderSpells();
+			});
 
-					checkboxes.forEach((checkbox) => {
-						// Toggle checked state and trigger change event
-						checkbox.checked = !allChecked;
-						const event = new Event("change", { bubbles: true });
-						checkbox.dispatchEvent(event);
-					});
-
-					// Update button text
-					dom.selectAllButton.innerHTML = allChecked
-						? `<i class="fas fa-check-square"></i> Select All`
-						: `<i class="fas fa-minus-square"></i> Deselect All`;
-				});
-
-				dom.printButton.addEventListener("click", () => {
-					const selected = document.querySelectorAll(".spell-card.selected");
-					if (selected.length === 0) {
-						alert("Please select at least one spell to print!");
-						return;
-					}
-					window.print();
-				});
+			// Function to update filteredSpells and re-render
+			function updateAndRender() {
+				filteredSpells = filterAndSortSpells();
+				renderSpells();
 			}
-
-			const debounce = (fn, delay) => {
-				let timeout;
-				return (...args) => {
-					clearTimeout(timeout);
-					timeout = setTimeout(() => fn(...args), delay);
-				};
-			};
-
-			async function initialize() {
-				try {
-					await Promise.all([
-						loadSpellData().then((data) => (allSpells = data)),
-						fetchTemplate(),
-					]);
-
-					Object.keys(CLASS_COLORS).forEach((cls) => {
-						const option = document.createElement("option");
-						option.value = cls;
-						option.textContent = cls;
-						dom.classSelect.appendChild(option);
-					});
-
-					const schools = [
-						...new Set(allSpells.map((spell) => spell.school)),
-					].sort();
-					schools.forEach((school) => {
-						const option = document.createElement("option");
-						option.value = school;
-						option.textContent = school;
-						dom.schoolSelect.appendChild(option);
-					});
-
-					filteredSpells = filterAndSortSpells();
-					setupEventListeners();
-					await renderSpells();
-				} catch (error) {
-					console.error("Initialization failed:", error);
-				}
-			}
-
-			window.addEventListener("beforeunload", () => abortController.abort());
-			document.addEventListener("DOMContentLoaded", initialize);
 		</script>
-
 		<!-- Slim Select JS -->
 		<script src="https://cdn.jsdelivr.net/npm/slim-select@1.27.0/dist/slimselect.min.js"></script>
 		<script>

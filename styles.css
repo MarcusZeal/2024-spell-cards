@@ -20,30 +20,39 @@ div#spellContainer {
 	flex-direction: column;
 	padding: 2mm 2mm 0px 2mm;
 	justify-content: space-between;
-	border: 0.5px dotted #000;
 	margin: 4px;
-	background-color: rgba(var(--classColor), 0.1);
 	border: 1px solid #ddd;
 	border-radius: 4px;
 	background: white;
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 	position: relative;
+	transform-style: preserve-3d;
+	transition: transform 0.6s;
 }
 
 .spell-card aside.card-front {
-	height: 100%;
 	display: flex;
 	flex-direction: column;
+	position: absolute;
+	width: calc(2.5in - 4mm);
+	height: calc(3.5in - 2mm);
+	backface-visibility: hidden;
+	z-index: 2;
 }
 
 .spell-card aside.card-back {
-	height: 100%;
 	position: absolute;
+	backface-visibility: hidden;
 	width: 100%;
+	height: 100%;
 	top: 0px;
 	left: 0px;
 	display: flex;
-	visibility: hidden;
+	transform: rotateY(180deg);
+	/* background-color: var(--classColor); */
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 
 .card-back-content {
@@ -52,17 +61,39 @@ div#spellContainer {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
+	height: -webkit-fill-available;
 	align-items: center;
 	justify-content: center;
+	border-radius: 50px 15px;
 }
 
-.spell-class-image .class-image {
+.card-back-content .spell-class-image .class-image {
 	position: relative;
 	width: 76px;
 	margin: 0 auto;
 	top: unset;
 	right: unset;
 	filter: drop-shadow(0px 0px 15px currentColor);
+}
+
+.card-back-content .back-spell-level {
+	font-size: 28pt;
+	font-weight: 700;
+	color: var(--classColor);
+	position: absolute;
+	top: 2mm;
+	right: 2mm;
+	background: #fff;
+	padding: 10px;
+	width: 10mm;
+	height: 10mm;
+	text-align: right;
+	display: block;
+	line-height: 5mm;
+	border-radius: 7.5px 15px 7.5px 50px;
+	border: 6px solid var(--classColor);
+	border-top-color: #fff;
+	border-right-color: #fff;
 }
 
 .card-back-content .spell-class {
@@ -121,9 +152,11 @@ section {
 	font-family: Baskerville;
 	letter-spacing: 0.02em;
 }
-spell-level {
+.spell-level {
 	display: block;
 	font-size: 8pt;
+	font-weight: 600;
+	letter-spacing: 0.05em;
 	padding: 5px;
 	line-height: 1em;
 	background: var(--classColor);
@@ -206,14 +239,15 @@ button#selectAllButton:hover,
 	outline: 2px solid #4caf50;
 }
 
-.spell-card {
-	contain: content;
-	transition: transform 0.2s ease;
-}
-
 .spell-card:hover {
+	/* transform: rotateY(180deg); fliiiip */
 	transform: translateY(-2px);
 	cursor: pointer;
+}
+
+/* Class to flip the card */
+.spell-card.flipped {
+	transform: rotateY(180deg);
 }
 
 .error {
@@ -250,6 +284,47 @@ button#selectAllButton:hover,
 .choices[data-type*="select-one"] .choices__inner {
 	padding: 0.3rem;
 }
+.loading-state {
+	padding: 2rem;
+	text-align: center;
+	color: #666;
+	font-style: italic;
+}
+.error {
+	padding: 2rem;
+	text-align: center;
+	color: #dc3545;
+	border: 1px solid #dc3545;
+	margin: 1rem;
+	border-radius: 4px;
+}
+.error-card {
+	border: 2px solid #ff4444;
+	padding: 1rem;
+	margin: 0.5rem;
+	background: #ffeaea;
+	color: #cc0000;
+}
+.notification {
+	position: fixed;
+	bottom: 20px;
+	left: 50%;
+	transform: translateX(-50%);
+	background-color: hwb(64 24% 0%);
+	color: #000;
+	padding: 10px 20px;
+	border-radius: 5px;
+	font-size: 18px;
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity 0.4s ease-in-out, visibility 0.4s;
+	z-index: 1000;
+}
+
+.notification.show {
+	opacity: 1;
+	visibility: visible;
+}
 
 @media print {
 	.spell-card {
@@ -259,6 +334,19 @@ button#selectAllButton:hover,
 		border: 1px solid #ddd !important;
 		outline: unset !important;
 	}
+	.spell-card.selected.flipped {
+		transform: rotateY(180deg) !important;
+	}
+
+	.spell-card.selected:not(.flipped) aside.card-back,
+	.spell-card.selected.flipped aside.card-front {
+		visibility: hidden !important;
+	}
+	.spell-card.selected.flipped aside.card-back,
+	.spell-card.selected:not(.flipped) aside.card-front {
+		visibility: visible !important;
+	}
+
 	.filters,
 	.select-checkbox {
 		display: none !important;
