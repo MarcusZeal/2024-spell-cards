@@ -179,11 +179,15 @@
 
 					// Populate template elements
 					content.querySelector(".spell-name").textContent = spell.name;
-					const infoFields = content.querySelectorAll(".si-txt");
-					infoFields[0].textContent = spell.casting_time;
-					infoFields[1].textContent = spell.components;
-					infoFields[2].textContent = spell.range;
-					infoFields[3].textContent = spell.duration;
+					content.querySelector(".spell-casting-time .si-txt").textContent =
+						spell.casting_time;
+					content.querySelector(".spell-components .si-txt").textContent =
+						spell.components;
+					content.querySelector(".spell-range .si-txt").textContent =
+						spell.range;
+					content.querySelector(".spell-duration .si-txt").textContent =
+						spell.duration;
+
 					content.querySelector(".desc").innerHTML = sanitizeHTML(
 						spell.description
 					);
@@ -192,6 +196,8 @@
 					).textContent = `Level ${spell.level} ${spell.school}`;
 					content.querySelector(".classes .si-txt").textContent =
 						spell.classes.join(", ");
+
+					content.querySelector(".spell-class").textContent = currentClass;
 
 					//sanitize HTML just in case...
 					function sanitizeHTML(html) {
@@ -208,9 +214,12 @@
 					}
 
 					// Set class-specific styling
-					const img = content.querySelector("img");
-					img.src = `img/${currentClass.toLowerCase()}.png`;
-					img.alt = currentClass;
+					const images = content.querySelectorAll(".class-image");
+					images.forEach((img) => {
+						img.src = `img/${currentClass.toLowerCase()}.png`;
+						img.alt = currentClass;
+					});
+
 					card.style.setProperty(
 						"--classColor",
 						CLASS_COLORS[currentClass] || "gray"

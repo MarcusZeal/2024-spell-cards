@@ -1,35 +1,45 @@
 <template>
-	<input type="checkbox" class="select-checkbox" />
-	<header>
-		<div class="spell-name"></div>
-		<div class="spell-info">
-			<div class="si-in">
-				<strong class="si-type">Casting Type:</strong>
+	<aside class="card-front">
+		<input type="checkbox" class="select-checkbox" />
+		<header>
+			<div class="spell-name"></div>
+			<div class="spell-info">
+				<div class="si-in spell-casting-time">
+					<strong class="si-type">Casting Type:</strong>
+					<span class="si-txt"></span>
+				</div>
+				<div class="si-in spell-components">
+					<strong class="si-type">Components:</strong>
+					<span class="si-txt"></span>
+				</div>
+				<div class="si-in spell-range">
+					<strong class="si-type">Range:</strong>
+					<span class="si-txt"></span>
+				</div>
+				<div class="si-in spell-duration">
+					<strong class="si-type">Duration:</strong>
+					<span class="si-txt"></span>
+				</div>
+			</div>
+			<img class="class-image" alt="Class icon" />
+		</header>
+		<section>
+			<p class="desc"></p>
+		</section>
+		<footer>
+			<spell-level></spell-level>
+			<div class="classes">
+				<strong class="si-type">Classes:</strong>
 				<span class="si-txt"></span>
 			</div>
-			<div class="si-in">
-				<strong class="si-type">Components:</strong>
-				<span class="si-txt"></span>
+		</footer>
+	</aside>
+	<aside class="card-back">
+		<div class="card-back-content">
+			<div class="spell-class-image">
+				<img class="class-image" alt="Class icon" />
 			</div>
-			<div class="si-in">
-				<strong class="si-type">Range:</strong>
-				<span class="si-txt"></span>
-			</div>
-			<div class="si-in">
-				<strong class="si-type">Duration:</strong>
-				<span class="si-txt"></span>
-			</div>
+			<div class="spell-class"></div>
 		</div>
-		<img class="class-image" alt="Class icon" />
-	</header>
-	<section>
-		<p class="desc"></p>
-	</section>
-	<footer>
-		<spell-level></spell-level>
-		<div class="classes">
-			<strong class="si-type">Classes:</strong>
-			<span class="si-txt"></span>
-		</div>
-	</footer>
+	</aside>
 </template>
